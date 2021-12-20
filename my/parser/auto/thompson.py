@@ -34,8 +34,41 @@ A+ = {}
 
 比如a|food表示a 或者 food
 """
+import sys
+sys.path.append(r"D:\projects\compiler\lsbasi")
 import json
+from my.render import render
 from parse import REParser, CONNECT, OR, KLEENE
+
+
+class State(int):
+    current = 0
+
+    def __new__(cls):
+        self = super().__new__(cls, cls.current)
+        self.label = f"q{cls.current}"
+        cls.current += 1
+        return self
+
+    def to_dict(self):
+        return {"id": self, "label": self.label}
+
+    def __str__(self) -> str:
+        return self.label
+
+class Edge:
+    def __init__(self, source, target, char) -> None:
+        self.source = source
+        self.target = target
+        self.char = char
+        self.label = char if char else "ε"
+
+    def to_dict(self):
+        return {
+            "source": self.source, 
+            "target": self.target,
+            "label": self.label,
+        }
 
 class NFA:
     count = 0
@@ -46,62 +79,56 @@ class NFA:
         self.status.add(state)
         return state
 
-    def __init__(self, char) -> None:
-        self.status = set()
-        self.edges = set()
-        self.start = self.newState()
-        self.end = self.newState()
-        self.edges.add((self.start, self.end, char))
+    def __init__(self, char="") -> None:
+        self.start = State()
+        self.end = State()
+        self.status = [self.start, self.end]
+        edge = Edge(self.start, self.end, char)
+        self.edges = [edge]
 
-    
-    def merge(self, other):
-        self.status |= other.status
-        self.edges |= other.edges       
+    def _merge(self, other):
+        self.status.extend(other.status)
+        self.edges.extend(other.edges)
 
     def connect(self, other):
-        self.merge(other)
-        self.edges.add((self.end, other.start, "ε"))
+        self._merge(other)
+        self.edges.append(Edge(self.end, other.start, "ε"))
         self.end = other.end
 
     def oor(self, other):
-        self.merge(other)
-        start = self.newState()
-        end = self.newState()
-        self.edges.add((start, self.start, "ε"))
-        self.edges.add((start, other.start, "ε"))
-        self.edges.add((self.end, end, "ε"))
-        self.edges.add((other.end, end, "ε"))
+        self._merge(other)
+        start = State()
+        end = State()
+        self.edges.append(Edge(start, self.start, ""))
+        self.edges.append(Edge(start, other.start, ""))
+        self.edges.append(Edge(self.end, end, ""))
+        self.edges.append(Edge(other.end, end, ""))
         self.start = start
         self.end = end
     
     def kleene(self):
-        start = self.newState()
-        end = self.newState()
-        self.edges.add((start, self.start, "ε"))
-        self.edges.add((self.end, end, "ε"))
-        self.edges.add((self.end, self.start, "ε"))
-        self.edges.add((start, end, "ε"))
+        start = State()
+        end = State()
+        self.edges.append(Edge(start, self.start, ""))
+        self.edges.append(Edge(self.end, end, ""))
+        self.edges.append(Edge(self.end, self.start, ""))
+        self.edges.append(Edge(start, end, ""))
         self.start = start
         self.end = end
 
-    def to_json(self):
+    def __dict__(self):
         data = {"nodes": [], "edges": []}
         for node in self.status:
-            data["nodes"].append({
-                "id": node, 
-                "label": f"q{node}",
-                "style": "fill:#ffffff00;stroke:red;" if node == self.end else "fill:#ffffff00;stroke:#000;"
-            })
+            data["nodes"].append(node.to_dict())
         for edge in self.edges:
-            data["edges"].append({
-                "source": edge[0],
-                "target": edge[1],
-                "label": edge[2],
-            })
+            data["edges"].append(edge.to_dict())
         return data
+        
+    def json(self):
+        return json.dumps(self.__dict__())
 
     def __str__(self) -> str:
-        return json.dumps(self.to_json())
+        return self.json()
 
 def post2nfa(post):
     stack = []
@@ -122,10 +149,11 @@ def post2nfa(post):
         return NFA("")
 
 def main():
-    text = "a(b|c)*"
+    text = "f(ee|ie)*"
     re = REParser(text)
     nfa = post2nfa(re.to_post())
-    print(nfa)
+    render(nfa.__dict__())
 
 if __name__ == "__main__":
+
     main()

@@ -28,8 +28,6 @@ printable = digits + ascii_letters + punctuation + whitespace
 table = string.ascii_letters + string.digits
 
 alpha = string.ascii_letters + string.digits
-opr = "|*"
-text = "ab|c"
 
 # 基础类型
 BLANK = "blank"
@@ -47,8 +45,6 @@ KLEENE = "kleene"
 def cmp_opr(token1, token2):
     orders = [OR, CONNECT, KLEENE]
     return orders.index(token1.t) - orders.index(token2.t)
-
-
 
 
 class Token:
@@ -91,7 +87,7 @@ class REParser:
                 break
             if token.t in (CHAR, LEFT_BRACKET):
                 if last_token and last_token.t in (CHAR, RIGHT_BRACKET):
-                    yield Token(CONNECT, "-")
+                    yield Token(CONNECT, "·")
             yield token
             last_token = token
 
